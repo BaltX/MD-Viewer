@@ -28,71 +28,7 @@
                            HorizontalAlignment="Center"/>
             </Border>
 
-            <!-- HorizontalScrollBarVisibility=Disabled prevents the ListBox from
-                 measuring items as infinitely wide, which caused path overflow. -->
-            <ListBox x:Name="RecentList"
-                     Background="Transparent" BorderThickness="0"
-                     Margin="0,0,0,0"
-                     ScrollViewer.HorizontalScrollBarVisibility="Disabled"
-                     SelectionChanged="RecentList_SelectionChanged">
-                <ListBox.ItemContainerStyle>
-                    <Style TargetType="ListBoxItem">
-                        <Setter Property="Padding" Value="0"/>
-                        <Setter Property="Margin" Value="0,0,0,3"/>
-                        <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
-                        <Setter Property="Background" Value="Transparent"/>
-                        <Setter Property="BorderThickness" Value="0"/>
-                        <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
-                        <Setter Property="Template">
-                            <Setter.Value>
-                                <ControlTemplate TargetType="ListBoxItem">
-                                    <Border x:Name="Root"
-                                            Background="{DynamicResource BgSidebar}"
-                                            CornerRadius="5" Height="54" Padding="16,0">
-                                        <Grid>
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="Auto"/>
-                                                <ColumnDefinition Width="*"/>
-                                                <ColumnDefinition Width="Auto"/>
-                                            </Grid.ColumnDefinitions>
-                                            <TextBlock Text="📁" FontSize="22"
-                                                       VerticalAlignment="Center"
-                                                       Margin="0,0,14,0"/>
-                                            <StackPanel Grid.Column="1" VerticalAlignment="Center"
-                                                        MinWidth="0">
-                                                <TextBlock Text="{Binding Name}"
-                                                           Foreground="{DynamicResource FgMain}"
-                                                           FontSize="14"
-                                                           TextTrimming="CharacterEllipsis"/>
-                                                <TextBlock Text="{Binding Path}"
-                                                           Foreground="{DynamicResource FgMuted}"
-                                                           FontSize="11"
-                                                           TextTrimming="CharacterEllipsis"/>
-                                            </StackPanel>
-                                            <TextBlock Grid.Column="2"
-                                                       Text="{Binding LastOpened, StringFormat='{}{0:dd.MM.yy}'}"
-                                                       Foreground="{DynamicResource FgMuted}"
-                                                       FontSize="11"
-                                                       VerticalAlignment="Center"
-                                                       Margin="12,0,0,0"/>
-                                        </Grid>
-                                    </Border>
-                                    <ControlTemplate.Triggers>
-                                        <Trigger Property="IsMouseOver" Value="True">
-                                            <Setter TargetName="Root" Property="Background"
-                                                    Value="{DynamicResource Hover}"/>
-                                        </Trigger>
-                                        <Trigger Property="IsSelected" Value="True">
-                                            <Setter TargetName="Root" Property="Background"
-                                                    Value="{DynamicResource Selected}"/>
-                                        </Trigger>
-                                    </ControlTemplate.Triggers>
-                                </ControlTemplate>
-                            </Setter.Value>
-                        </Setter>
-                    </Style>
-                </ListBox.ItemContainerStyle>
-            </ListBox>
+            <StackPanel x:Name="RecentList"/>
 
             <!-- Divider -->
             <Border Height="1" Background="{DynamicResource BorderColor}" Margin="0,14,0,14"/>

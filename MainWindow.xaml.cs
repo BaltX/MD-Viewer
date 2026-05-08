@@ -71,7 +71,10 @@ public partial class MainWindow : Window
             ["Dark"]          = "Тёмная",
             ["Light"]         = "Светлая",
             ["Monokai"]       = "Monokai",
-            ["SolarizedDark"] = "Solarized Dark"
+            ["SolarizedDark"] = "Solarized Dark",
+            ["Nord"]          = "Nord",
+            ["Dracula"]       = "Dracula",
+            ["OneDark"]       = "One Dark"
         };
         CurrentThemeLabel.Text = names.TryGetValue(ThemeService.Current, out var n)
             ? $"Текущая: {n}" : "";
@@ -205,7 +208,6 @@ public partial class MainWindow : Window
             FontSize = 13,
             VerticalAlignment = VerticalAlignment.Center,
             TextTrimming = TextTrimming.CharacterEllipsis,
-            MaxWidth = 160,
             Margin = new Thickness(12, 0, 4, 0)
         };
 
@@ -216,13 +218,14 @@ public partial class MainWindow : Window
             Style = Application.Current.FindResource("CloseTabBtn") as Style
         };
 
-        var inner = new StackPanel
+        var inner = new DockPanel
         {
-            Orientation = Orientation.Horizontal,
-            VerticalAlignment = VerticalAlignment.Center
+            VerticalAlignment = VerticalAlignment.Center,
+            LastChildFill = true
         };
-        inner.Children.Add(label);
+        DockPanel.SetDock(closeBtn, Dock.Right);
         inner.Children.Add(closeBtn);
+        inner.Children.Add(label);
 
         // 3 px accent bar at the top — colored when active, transparent when not
         var indicator = new System.Windows.Shapes.Rectangle

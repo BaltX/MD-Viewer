@@ -1,0 +1,44 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:sys="clr-namespace:System;assembly=mscorlib">
+
+    <!-- WPF brushes -->
+    <SolidColorBrush x:Key="BgMain"                Color="#282C34"/>
+    <SolidColorBrush x:Key="BgSidebar"             Color="#21252B"/>
+    <SolidColorBrush x:Key="BgTabBar"              Color="#21252B"/>
+    <SolidColorBrush x:Key="BgPopup"               Color="#21252B"/>
+    <SolidColorBrush x:Key="BgInput"               Color="#2C313A"/>
+    <SolidColorBrush x:Key="FgMain"                Color="#ABB2BF"/>
+    <SolidColorBrush x:Key="FgMuted"               Color="#5C6370"/>
+    <SolidColorBrush x:Key="Accent"                Color="#61AFEF"/>
+    <SolidColorBrush x:Key="AccentHover"           Color="#72BDF5"/>
+    <SolidColorBrush x:Key="AccentPress"           Color="#4D9FE0"/>
+    <SolidColorBrush x:Key="BorderColor"           Color="#3A3F4B"/>
+    <SolidColorBrush x:Key="Hover"                 Color="#2C313A"/>
+    <SolidColorBrush x:Key="Selected"              Color="#3A3F4B"/>
+    <SolidColorBrush x:Key="TabActive"             Color="#282C34"/>
+    <SolidColorBrush x:Key="TabInactive"           Color="#21252B"/>
+    <SolidColorBrush x:Key="TabActiveIndicator"    Color="#61AFEF"/>
+    <SolidColorBrush x:Key="TreeHoverBg"           Color="#2C313A"/>
+    <SolidColorBrush x:Key="TreeSelectedBg"        Color="#3A3F4B"/>
+    <SolidColorBrush x:Key="TreeSelectedInactiveBg" Color="#323740"/>
+    <SolidColorBrush x:Key="FgTreeSelected"        Color="#ABB2BF"/>
+
+    <!-- Markdown CSS colors -->
+    <sys:String x:Key="MdBg">#282c34</sys:String>
+    <sys:String x:Key="MdFg">#abb2bf</sys:String>
+    <sys:String x:Key="MdHeading">#e06c75</sys:String>
+    <sys:String x:Key="MdCode">#21252b</sys:String>
+    <sys:String x:Key="MdCodeFg">#98c379</sys:String>
+    <sys:String x:Key="MdCodeBlockFg">#abb2bf</sys:String>
+    <sys:String x:Key="MdBorder">#3a3f4b</sys:String>
+    <sys:String x:Key="MdLink">#61afef</sys:String>
+    <sys:String x:Key="MdQuote">#5c6370</sys:String>
+    <sys:String x:Key="MdTableEven">#21252b</sys:String>
+    <sys:String x:Key="MdThHead">#2c313a</sys:String>
+    <sys:String x:Key="MdEm">#e5c07b</sys:String>
+    <sys:String x:Key="MdStrong">#d19a66</sys:String>
+    <sys:String x:Key="MdScrollThumb">#4b5263</sys:String>
+    <sys:String x:Key="MdScrollThumbHover">#636d83</sys:String>
+
+</ResourceDictionary>

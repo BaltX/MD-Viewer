@@ -144,6 +144,33 @@
                         </StackPanel>
                     </Button>
 
+                    <Button Tag="Nord" Click="ThemeOption_Click"
+                            Style="{StaticResource PopupItemStyle}">
+                        <StackPanel Orientation="Horizontal" Height="20">
+                            <Border Width="12" Height="12" Background="#88C0D0"
+                                    CornerRadius="6" Margin="0,0,10,0" VerticalAlignment="Center"/>
+                            <TextBlock Text="Nord" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+
+                    <Button Tag="Dracula" Click="ThemeOption_Click"
+                            Style="{StaticResource PopupItemStyle}">
+                        <StackPanel Orientation="Horizontal" Height="20">
+                            <Border Width="12" Height="12" Background="#BD93F9"
+                                    CornerRadius="6" Margin="0,0,10,0" VerticalAlignment="Center"/>
+                            <TextBlock Text="Dracula" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+
+                    <Button Tag="OneDark" Click="ThemeOption_Click"
+                            Style="{StaticResource PopupItemStyle}">
+                        <StackPanel Orientation="Horizontal" Height="20">
+                            <Border Width="12" Height="12" Background="#61AFEF"
+                                    CornerRadius="6" Margin="0,0,10,0" VerticalAlignment="Center"/>
+                            <TextBlock Text="One Dark" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+
                     <Border Height="1" Background="{DynamicResource BorderColor}" Margin="4,6"/>
 
                     <!-- Current theme indicator -->

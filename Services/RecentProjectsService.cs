@@ -21,6 +21,13 @@ public static class RecentProjectsService
         catch { return new(); }
     }
 
+    public static void Remove(string path)
+    {
+        var list = Load();
+        list.RemoveAll(p => string.Equals(p.Path, path, StringComparison.OrdinalIgnoreCase));
+        Save(list);
+    }
+
     public static void AddOrUpdate(ProjectInfo project)
     {
         var list = Load();
