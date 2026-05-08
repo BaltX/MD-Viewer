@@ -1,0 +1,158 @@
+<Window x:Class="MDViewer.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="MD Viewer"
+        Width="1280" Height="800"
+        MinWidth="800" MinHeight="500"
+        Background="{DynamicResource BgMain}"
+        WindowStartupLocation="CenterScreen">
+
+    <Window.Resources>
+        <!-- Add-tab / icon button shared style -->
+        <Style x:Key="BarIconBtn" TargetType="Button">
+            <Setter Property="Width" Value="35"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="{DynamicResource FgMuted}"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bg" Background="{TemplateBinding Background}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"
+                                              TextBlock.Foreground="{TemplateBinding Foreground}"
+                                              TextBlock.FontSize="17"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bg" Property="Background" Value="{DynamicResource Hover}"/>
+                                <Setter Property="Foreground" Value="{DynamicResource FgMain}"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="Bg" Property="Background" Value="{DynamicResource Selected}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="35"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <!-- ============================================================ -->
+        <!-- TAB BAR                                                       -->
+        <!-- ============================================================ -->
+        <Border Grid.Row="0" Background="{DynamicResource BgTabBar}"
+                BorderBrush="{DynamicResource BorderColor}" BorderThickness="0,0,0,1">
+            <DockPanel>
+                <!-- Theme picker button — rightmost -->
+                <Button DockPanel.Dock="Right"
+                        x:Name="ThemeBtn"
+                        Style="{StaticResource BarIconBtn}"
+                        ToolTip="Выбрать тему"
+                        Click="ThemeBtn_Click">
+                    <TextBlock Text="🎨" FontSize="15"/>
+                </Button>
+
+                <!-- Scrollable tab strip — add-tab button lives inside as last child -->
+                <ScrollViewer HorizontalScrollBarVisibility="Auto"
+                              VerticalScrollBarVisibility="Hidden"
+                              Background="Transparent">
+                    <StackPanel x:Name="TabStrip"
+                                Orientation="Horizontal"
+                                Background="Transparent">
+                        <!-- permanent last child: always stays after the tabs -->
+                        <Button x:Name="AddTabBtn"
+                                Style="{StaticResource BarIconBtn}"
+                                ToolTip="Новый проект"
+                                Click="AddTab_Click">
+                            <TextBlock Text="＋" FontSize="18"/>
+                        </Button>
+                    </StackPanel>
+                </ScrollViewer>
+            </DockPanel>
+        </Border>
+
+        <!-- ============================================================ -->
+        <!-- CONTENT AREA                                                  -->
+        <!-- ============================================================ -->
+        <ContentControl x:Name="ContentArea" Grid.Row="1"
+                        Background="{DynamicResource BgMain}"/>
+
+        <!-- ============================================================ -->
+        <!-- THEME PICKER POPUP                                            -->
+        <!-- ============================================================ -->
+        <Popup x:Name="ThemePopup" Grid.Row="0"
+               StaysOpen="False"
+               Placement="Bottom"
+               PlacementTarget="{Binding ElementName=ThemeBtn}"
+               AllowsTransparency="True">
+            <Border Background="{DynamicResource BgPopup}"
+                    BorderBrush="{DynamicResource BorderColor}"
+                    BorderThickness="1"
+                    CornerRadius="5"
+                    Padding="6"
+                    MinWidth="210"
+                    >
+                <Border.Effect>
+                    <DropShadowEffect BlurRadius="12" ShadowDepth="2" Opacity="0.4" Color="Black"/>
+                </Border.Effect>
+                <StackPanel>
+                    <TextBlock Text="ТЕМА" Foreground="{DynamicResource FgMuted}"
+                               FontSize="10" FontWeight="Bold"
+                               Margin="10,6,10,8"/>
+
+                    <Button Tag="Dark" Click="ThemeOption_Click"
+                            Style="{StaticResource PopupItemStyle}">
+                        <StackPanel Orientation="Horizontal" Height="20">
+                            <Border Width="12" Height="12" Background="#007ACC"
+                                    CornerRadius="6" Margin="0,0,10,0" VerticalAlignment="Center"/>
+                            <TextBlock Text="Тёмная (VS Code)" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+
+                    <Button Tag="Light" Click="ThemeOption_Click"
+                            Style="{StaticResource PopupItemStyle}">
+                        <StackPanel Orientation="Horizontal" Height="20">
+                            <Border Width="12" Height="12" Background="#0969DA"
+                                    CornerRadius="6" Margin="0,0,10,0" VerticalAlignment="Center"/>
+                            <TextBlock Text="Светлая (GitHub)" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+
+                    <Button Tag="Monokai" Click="ThemeOption_Click"
+                            Style="{StaticResource PopupItemStyle}">
+                        <StackPanel Orientation="Horizontal" Height="20">
+                            <Border Width="12" Height="12" Background="#A6E22E"
+                                    CornerRadius="6" Margin="0,0,10,0" VerticalAlignment="Center"/>
+                            <TextBlock Text="Monokai" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+
+                    <Button Tag="SolarizedDark" Click="ThemeOption_Click"
+                            Style="{StaticResource PopupItemStyle}">
+                        <StackPanel Orientation="Horizontal" Height="20">
+                            <Border Width="12" Height="12" Background="#268BD2"
+                                    CornerRadius="6" Margin="0,0,10,0" VerticalAlignment="Center"/>
+                            <TextBlock Text="Solarized Dark" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+
+                    <Border Height="1" Background="{DynamicResource BorderColor}" Margin="4,6"/>
+
+                    <!-- Current theme indicator -->
+                    <TextBlock x:Name="CurrentThemeLabel"
+                               Foreground="{DynamicResource FgMuted}"
+                               FontSize="11" Margin="10,0,10,6"
+                               HorizontalAlignment="Left"/>
+                </StackPanel>
+            </Border>
+        </Popup>
+    </Grid>
+</Window>

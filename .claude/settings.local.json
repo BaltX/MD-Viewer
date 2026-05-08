@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(dotnet restore *)",
+      "Bash(dotnet build *)",
+      "Bash(start \"\" \"bin\\\\Debug\\\\net8.0-windows\\\\MDViewer.exe\")",
+      "mcp__Claude_in_Chrome__tabs_context_mcp",
+      "mcp__Claude_in_Chrome__computer",
+      "Bash(tasklist /FI \"IMAGENAME eq MDViewer.exe\")",
+      "PowerShell(Get-Process -Name \"MDViewer\" -ErrorAction SilentlyContinue)",
+      "PowerShell(& \"C:\\\\Users\\\\kirill.fedotov\\\\Documents\\\\GitHub\\\\MD Viewer\\\\bin\\\\Debug\\\\net8.0-windows\\\\MDViewer.exe\" 2>&1; Write-Host \"Exit code: $LASTEXITCODE\")",
+      "Bash(taskkill /F /IM MDViewer.exe)"
+    ]
+  }
+}
