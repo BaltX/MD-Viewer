@@ -1,6 +1,8 @@
+using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Interop;
 using System.Windows.Media;
 using MDViewer.Controls;
 using MDViewer.Models;
@@ -10,6 +12,87 @@ namespace MDViewer;
 
 public partial class MainWindow : Window
 {
+    // ------------------------------------------------------------------ //
+    //  DWM – rounded corners + shadow                                     //
+    // ------------------------------------------------------------------ //
+    [DllImport("dwmapi.dll")]
+    private static extern int DwmSetWindowAttribute(IntPtr hwnd, int attr,
+        ref int attrValue, int attrSize);
+
+    [DllImport("dwmapi.dll")]
+    private static extern int DwmExtendFrameIntoClientArea(IntPtr hwnd,
+        ref Margins margins);
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct Margins { public int Left, Right, Top, Bottom; }
+
+    private const int DWMWA_WINDOW_CORNER_PREFERENCE = 33;
+    private const int DWMWCP_ROUND                   = 2;
+
+    protected override void OnSourceInitialized(EventArgs e)
+    {
+        base.OnSourceInitialized(e);
+        var hwnd = new WindowInteropHelper(this).Handle;
+
+        // Rounded corners (Windows 11 only; silently ignored on Windows 10)
+        var corner = DWMWCP_ROUND;
+        DwmSetWindowAttribute(hwnd, DWMWA_WINDOW_CORNER_PREFERENCE,
+            ref corner, sizeof(int));
+
+        // Thin DWM shadow on all sides
+        var m = new Margins { Left = 0, Right = 0, Top = 0, Bottom = 1 };
+        DwmExtendFrameIntoClientArea(hwnd, ref m);
+    }
+
+    // ------------------------------------------------------------------ //
+    //  Window state                                                        //
+    // ------------------------------------------------------------------ //
+    protected override void OnStateChanged(EventArgs e)
+    {
+        base.OnStateChanged(e);
+        // Update icon: E922 = maximize, E923 = restore
+        WinMaxBtn.Content = WindowState == WindowState.Maximized
+            ? "" : "";
+        WinMaxBtn.ToolTip = WindowState == WindowState.Maximized
+            ? "Восстановить" : "Развернуть";
+    }
+
+    private void TitleBar_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        // PreviewMouseLeftButtonDown tunnels down before children handle it.
+        // Walk from the original source up to this Border: if we pass through any
+        // Button or tab-button Border, it's an interactive element — let it handle the click.
+        var el = e.OriginalSource as DependencyObject;
+        while (el != null && !ReferenceEquals(el, sender))
+        {
+            if (el is Button) return;
+            if (el is Border { Tag: TabButtonState }) return;
+            el = VisualTreeHelper.GetParent(el);
+        }
+
+        if (e.ClickCount >= 2)
+        {
+            if (WindowState == WindowState.Maximized)
+                SystemCommands.RestoreWindow(this);
+            else
+                SystemCommands.MaximizeWindow(this);
+        }
+        else
+        {
+            try { DragMove(); } catch { /* ignore spurious calls */ }
+        }
+    }
+
+    private void WinMin_Click(object sender, RoutedEventArgs e)  => SystemCommands.MinimizeWindow(this);
+    private void WinClose_Click(object sender, RoutedEventArgs e) => SystemCommands.CloseWindow(this);
+    private void WinMax_Click(object sender, RoutedEventArgs e)
+    {
+        if (WindowState == WindowState.Maximized)
+            SystemCommands.RestoreWindow(this);
+        else
+            SystemCommands.MaximizeWindow(this);
+    }
+
     // ------------------------------------------------------------------ //
     //  Tab model                                                           //
     // ------------------------------------------------------------------ //
@@ -24,6 +107,7 @@ public partial class MainWindow : Window
 
     private readonly List<TabEntry> _tabs = new();
     private int _activeIndex = -1;
+    private ProjectView? _activeProjectView;
 
     // ------------------------------------------------------------------ //
     //  Init                                                                //
@@ -35,6 +119,33 @@ public partial class MainWindow : Window
         UpdateCurrentThemeLabel();
         AddNewTabPage();
     }
+
+    // ------------------------------------------------------------------ //
+    //  Print (title-bar button delegates to the active ProjectView)       //
+    // ------------------------------------------------------------------ //
+    private void PrintBtn_Click(object sender, RoutedEventArgs e)
+        => _activeProjectView?.PrintCurrentFile();
+
+    private void TrackActiveProjectView(ProjectView? next)
+    {
+        if (_activeProjectView != null)
+            _activeProjectView.PrintableChanged -= OnPrintableChanged;
+
+        _activeProjectView = next;
+
+        if (_activeProjectView != null)
+        {
+            _activeProjectView.PrintableChanged += OnPrintableChanged;
+            PrintBtn.IsEnabled = _activeProjectView.CanPrint;
+        }
+        else
+        {
+            PrintBtn.IsEnabled = false;
+        }
+    }
+
+    private void OnPrintableChanged(object? sender, bool canPrint)
+        => PrintBtn.IsEnabled = canPrint;
 
     // ------------------------------------------------------------------ //
     //  Theme                                                               //
@@ -58,8 +169,6 @@ public partial class MainWindow : Window
     {
         RefreshAllTabColors();
         UpdateCurrentThemeLabel();
-
-        // Reload markdown preview in the active tab if it has a loaded file
         if (_activeIndex >= 0 && _tabs[_activeIndex].Content is ProjectView pv)
             pv.ReloadCurrentFile();
     }
@@ -120,10 +229,10 @@ public partial class MainWindow : Window
     {
         var entry = new TabEntry
         {
-            Title = title,
-            Content = content,
+            Title       = title,
+            Content     = content,
             IsNewTabPage = isNewTabPage,
-            TabButton = BuildTabButton(title)
+            TabButton   = BuildTabButton(title)
         };
         _tabs.Add(entry);
 
@@ -161,6 +270,9 @@ public partial class MainWindow : Window
         SetTabActive(_tabs[index].TabButton, true);
         ContentArea.Content = _tabs[index].Content;
 
+        // Update print button state
+        TrackActiveProjectView(_tabs[index].Content as ProjectView);
+
         if (_tabs[index].IsNewTabPage && _tabs[index].Content is NewTabPage page)
             page.Refresh();
     }
@@ -191,7 +303,6 @@ public partial class MainWindow : Window
     // ------------------------------------------------------------------ //
     //  Tab button building                                                 //
     // ------------------------------------------------------------------ //
-
     private sealed class TabButtonState
     {
         public required System.Windows.Shapes.Rectangle Indicator;
@@ -227,7 +338,6 @@ public partial class MainWindow : Window
         inner.Children.Add(closeBtn);
         inner.Children.Add(label);
 
-        // 3 px accent bar at the top — colored when active, transparent when not
         var indicator = new System.Windows.Shapes.Rectangle
         {
             Height = 3,
@@ -272,12 +382,10 @@ public partial class MainWindow : Window
     private static void SetTabActive(Border tab, bool active)
     {
         if (tab.Tag is not TabButtonState state) return;
-
         state.IsActive = active;
         state.Indicator.Fill = active ? GetBrush("TabActiveIndicator") : Brushes.Transparent;
         state.Label.Foreground = GetBrush(active ? "FgMain" : "FgMuted");
         state.Label.FontWeight = active ? FontWeights.SemiBold : FontWeights.Normal;
-
         tab.Background = GetBrush(active ? "TabActive" : "TabInactive");
         tab.BorderBrush = GetBrush("BorderColor");
         tab.BorderThickness = new Thickness(0, 0, 1, 0);
@@ -296,6 +404,18 @@ public partial class MainWindow : Window
     }
 
     // ------------------------------------------------------------------ //
+    //  Tab strip mouse wheel → horizontal scroll                          //
+    // ------------------------------------------------------------------ //
+    private void TabScroll_MouseWheel(object sender, MouseWheelEventArgs e)
+    {
+        if (sender is ScrollViewer sv)
+        {
+            sv.ScrollToHorizontalOffset(sv.HorizontalOffset - e.Delta / 3.0);
+            e.Handled = true;
+        }
+    }
+
+    // ------------------------------------------------------------------ //
     //  Event handlers                                                      //
     // ------------------------------------------------------------------ //
     private void AddTab_Click(object sender, RoutedEventArgs e) => AddNewTabPage();
@@ -307,7 +427,8 @@ public partial class MainWindow : Window
         Application.Current.Resources[key] as SolidColorBrush
         ?? new SolidColorBrush(Colors.Gray);
 
-    private static T? FindChild<T>(DependencyObject parent, string? name = null) where T : FrameworkElement
+    private static T? FindChild<T>(DependencyObject parent, string? name = null)
+        where T : FrameworkElement
     {
         for (var i = 0; i < VisualTreeHelper.GetChildrenCount(parent); i++)
         {

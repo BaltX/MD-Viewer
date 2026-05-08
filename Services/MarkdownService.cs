@@ -1,4 +1,5 @@
 using System.IO;
+using System.Reflection;
 using System.Text.RegularExpressions;
 using System.Windows;
 using Markdig;
@@ -11,18 +12,73 @@ public static class MarkdownService
         .UseAdvancedExtensions()
         .Build();
 
+    /// <summary>Mermaid.js source loaded once from the embedded resource.</summary>
+    private static readonly Lazy<string> MermaidJs = new(() =>
+    {
+        var asm  = Assembly.GetExecutingAssembly();
+        // Resource name: <AssemblyName>.<path with dots>
+        var name = asm.GetManifestResourceNames()
+                      .FirstOrDefault(n => n.EndsWith("mermaid.min.js",
+                                                       StringComparison.OrdinalIgnoreCase));
+        if (name == null) return "";
+        using var stream = asm.GetManifestResourceStream(name)!;
+        using var reader = new StreamReader(stream);
+        return reader.ReadToEnd();
+    });
+
     public static string ConvertToHtml(string markdown, string baseDirectory)
     {
         var body = Markdown.ToHtml(markdown, Pipeline);
         body = FixImagePaths(body, baseDirectory);
         body = FixLinkPaths(body, baseDirectory);
-        return Wrap(body);
+        body = ProcessMermaidBlocks(body, out var hasMermaid);
+        return Wrap(body, hasMermaid);
+    }
+
+    /// <summary>
+    /// Replaces Markdig-generated &lt;pre&gt;&lt;code class="language-mermaid"&gt;…&lt;/code&gt;&lt;/pre&gt;
+    /// with &lt;div class="mermaid"&gt;…&lt;/div&gt; that mermaid.js picks up automatically.
+    /// </summary>
+    private static string ProcessMermaidBlocks(string html, out bool hasMermaid)
+    {
+        var found = false;
+        var result = Regex.Replace(
+            html,
+            @"<pre><code class=""language-mermaid"">([\s\S]*?)</code></pre>",
+            m =>
+            {
+                found = true;
+                var diagram = m.Groups[1].Value
+                    .Replace("&amp;", "&")
+                    .Replace("&lt;", "<")
+                    .Replace("&gt;", ">")
+                    .Replace("&quot;", "\"")
+                    .Replace("&#39;", "'");
+                return $"<div class=\"mermaid\">{diagram}</div>";
+            });
+        hasMermaid = found;
+        return result;
+    }
+
+    /// <summary>Returns "dark" or "default" based on the current theme's background luminance.</summary>
+    private static string GetMermaidTheme()
+    {
+        var hex = C("MdBg", "#1e1e1e").TrimStart('#');
+        if (hex.Length >= 6 &&
+            int.TryParse(hex.AsSpan(0, 2), System.Globalization.NumberStyles.HexNumber, null, out var r) &&
+            int.TryParse(hex.AsSpan(2, 2), System.Globalization.NumberStyles.HexNumber, null, out var g) &&
+            int.TryParse(hex.AsSpan(4, 2), System.Globalization.NumberStyles.HexNumber, null, out var b))
+        {
+            return (0.299 * r + 0.587 * g + 0.114 * b) < 128 ? "dark" : "default";
+        }
+        return "dark";
     }
 
     public static string WrapRaw(string text)
     {
         var escaped = text.Replace("&", "&amp;").Replace("<", "&lt;").Replace(">", "&gt;");
-        return Wrap($"<pre style=\"white-space:pre-wrap;word-break:break-all;font-size:13px\">{escaped}</pre>");
+        return Wrap($"<pre style=\"white-space:pre-wrap;word-break:break-all;font-size:13px\">{escaped}</pre>",
+                    hasMermaid: false);
     }
 
     private static string FixImagePaths(string html, string baseDir)
@@ -77,20 +133,33 @@ public static class MarkdownService
         catch { return null; }
     }
 
-    private static string Wrap(string body) => $"""
-        <!DOCTYPE html>
-        <html>
-        <head>
-        <meta charset="utf-8">
-        <meta http-equiv="X-UA-Compatible" content="IE=Edge">
-        <style>{BuildCss()}</style>
-        </head>
-        <body>{body}<div id="csb"><div id="csb-t"></div></div>
-        <script>{NavJs}</script>
-        <script>{ScrollbarJs}</script>
-        </body>
-        </html>
-        """;
+    private static string Wrap(string body, bool hasMermaid = false)
+    {
+        var mermaidBlock = hasMermaid ? BuildMermaidScripts(GetMermaidTheme()) : "";
+        return $"""
+            <!DOCTYPE html>
+            <html>
+            <head>
+            <meta charset="utf-8">
+            <meta http-equiv="X-UA-Compatible" content="IE=Edge">
+            <style>{BuildCss()}</style>
+            </head>
+            <body>{body}<div id="csb"><div id="csb-t"></div></div>
+            <script>{NavJs}</script>
+            <script>{ScrollbarJs}</script>{mermaidBlock}
+            </body>
+            </html>
+            """;
+    }
+
+    // Inlines mermaid.js from the embedded resource — no CDN, no security-zone issues.
+    private static string BuildMermaidScripts(string theme)
+    {
+        var js = MermaidJs.Value;
+        if (string.IsNullOrEmpty(js)) return "";
+        return $"\n<script>{js}</script>" +
+               $"\n<script>mermaid.initialize({{startOnLoad:true,theme:'{theme}',securityLevel:'loose'}});</script>";
+    }
 
     private static string C(string key, string fallback) =>
         Application.Current?.Resources[key] as string ?? fallback;
@@ -197,6 +266,8 @@ public static class MarkdownService
             .task-list-item input[type=checkbox] { margin-right: 6px; }
             details { margin: 10px 0; }
             summary { cursor: pointer; color: {{link}}; }
+            .mermaid { margin: 16px 0; text-align: center; overflow-x: auto; }
+            .mermaid svg { max-width: 100%; }
             @media print {
                 #csb { display: none !important; }
                 body { color: #000; background: #fff; padding: 0; max-width: none; }

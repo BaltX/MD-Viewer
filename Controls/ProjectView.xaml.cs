@@ -17,6 +17,26 @@ public sealed class BrowserBridge(ProjectView view)
 
 public partial class ProjectView : UserControl
 {
+    /// <summary>Fired whenever the "can print" state changes. Payload = new state.</summary>
+    public event EventHandler<bool>? PrintableChanged;
+
+    /// <summary>Current printability state (true when a file is rendered).</summary>
+    public bool CanPrint { get; private set; }
+
+    private void SetCanPrint(bool value)
+    {
+        if (CanPrint == value) return;
+        CanPrint = value;
+        PrintableChanged?.Invoke(this, value);
+    }
+
+    /// <summary>Called by MainWindow's print button.</summary>
+    public void PrintCurrentFile()
+    {
+        try { Browser.InvokeScript("print"); }
+        catch { /* non-critical */ }
+    }
+
     private string? _currentFilePath;
 
     private readonly List<string> _history = new();
@@ -111,7 +131,7 @@ public partial class ProjectView : UserControl
 
             WelcomePlaceholder.Visibility = Visibility.Collapsed;
             Browser.Visibility = Visibility.Visible;
-            PrintBtn.IsEnabled = true;
+            SetCanPrint(true);
             Browser.NavigateToString(html);
         }
         catch (Exception ex)
@@ -213,7 +233,7 @@ public partial class ProjectView : UserControl
             var html = MarkdownService.WrapRaw(text);
             WelcomePlaceholder.Visibility = Visibility.Collapsed;
             Browser.Visibility = Visibility.Visible;
-            PrintBtn.IsEnabled = true;
+            SetCanPrint(true);
             Browser.NavigateToString(html);
         }
         catch (Exception ex)
@@ -356,7 +376,7 @@ public partial class ProjectView : UserControl
         _history.Clear();
         _historyIndex = -1;
         CurrentFilePath.Text = "Выберите файл в дереве →";
-        PrintBtn.IsEnabled = false;
+        SetCanPrint(false);
         BackBtn.IsEnabled = false;
         FwdBtn.IsEnabled = false;
         Browser.Visibility = Visibility.Collapsed;
@@ -366,16 +386,10 @@ public partial class ProjectView : UserControl
 
     private void ShowPlaceholder(string message)
     {
-        PrintBtn.IsEnabled = false;
+        SetCanPrint(false);
         Browser.Visibility = Visibility.Collapsed;
         WelcomePlaceholder.Visibility = Visibility.Visible;
         PlaceholderMsg.Text = message;
-    }
-
-    private void PrintBtn_Click(object sender, RoutedEventArgs e)
-    {
-        try { Browser.InvokeScript("print"); }
-        catch { /* non-critical */ }
     }
 
     private string GetRelativePath(string fullPath)

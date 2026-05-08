@@ -5,10 +5,23 @@
         Width="1280" Height="800"
         MinWidth="800" MinHeight="500"
         Background="{DynamicResource BgMain}"
+        WindowStyle="None"
+        ResizeMode="CanResize"
         WindowStartupLocation="CenterScreen">
 
+    <WindowChrome.WindowChrome>
+        <WindowChrome CaptionHeight="35"
+                      ResizeBorderThickness="5"
+                      GlassFrameThickness="0"
+                      UseAeroCaptionButtons="False"
+                      CornerRadius="0"/>
+    </WindowChrome.WindowChrome>
+
     <Window.Resources>
-        <!-- Add-tab / icon button shared style -->
+
+        <!-- ============================================================ -->
+        <!-- Icon/utility button in the title bar                         -->
+        <!-- ============================================================ -->
         <Style x:Key="BarIconBtn" TargetType="Button">
             <Setter Property="Width" Value="35"/>
             <Setter Property="Background" Value="Transparent"/>
@@ -32,11 +45,82 @@
                             <Trigger Property="IsPressed" Value="True">
                                 <Setter TargetName="Bg" Property="Background" Value="{DynamicResource Selected}"/>
                             </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Opacity" Value="0.35"/>
+                            </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
                 </Setter.Value>
             </Setter>
         </Style>
+
+        <!-- ============================================================ -->
+        <!-- Window control button (Min / Max)                            -->
+        <!-- ============================================================ -->
+        <Style x:Key="WinBtn" TargetType="Button">
+            <Setter Property="Width" Value="46"/>
+            <Setter Property="Height" Value="35"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="{DynamicResource FgMuted}"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bg" Background="{TemplateBinding Background}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"
+                                              TextBlock.Foreground="{TemplateBinding Foreground}"
+                                              TextBlock.FontFamily="Segoe MDL2 Assets"
+                                              TextBlock.FontSize="10"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bg" Property="Background" Value="{DynamicResource Hover}"/>
+                                <Setter Property="Foreground" Value="{DynamicResource FgMain}"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="Bg" Property="Background" Value="{DynamicResource Selected}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- ============================================================ -->
+        <!-- Window close button (turns red on hover)                     -->
+        <!-- ============================================================ -->
+        <Style x:Key="WinCloseBtn" TargetType="Button">
+            <Setter Property="Width" Value="46"/>
+            <Setter Property="Height" Value="35"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="{DynamicResource FgMuted}"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bg" Background="{TemplateBinding Background}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"
+                                              TextBlock.Foreground="{TemplateBinding Foreground}"
+                                              TextBlock.FontFamily="Segoe MDL2 Assets"
+                                              TextBlock.FontSize="10"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bg" Property="Background" Value="#E81123"/>
+                                <Setter Property="Foreground" Value="White"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="Bg" Property="Background" Value="#C42B1C"/>
+                                <Setter Property="Foreground" Value="White"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
     </Window.Resources>
 
     <Grid>
@@ -46,28 +130,32 @@
         </Grid.RowDefinitions>
 
         <!-- ============================================================ -->
-        <!-- TAB BAR                                                       -->
+        <!-- TITLE BAR — tabs + controls + window buttons                  -->
         <!-- ============================================================ -->
-        <Border Grid.Row="0" Background="{DynamicResource BgTabBar}"
-                BorderBrush="{DynamicResource BorderColor}" BorderThickness="0,0,0,1">
-            <DockPanel>
-                <!-- Theme picker button — rightmost -->
-                <Button DockPanel.Dock="Right"
-                        x:Name="ThemeBtn"
-                        Style="{StaticResource BarIconBtn}"
-                        ToolTip="Выбрать тему"
-                        Click="ThemeBtn_Click">
-                    <TextBlock Text="🎨" FontSize="15"/>
-                </Button>
+        <Border Grid.Row="0"
+                Background="{DynamicResource BgTabBar}"
+                BorderBrush="{DynamicResource BorderColor}"
+                BorderThickness="0,0,0,1"
+                PreviewMouseLeftButtonDown="TitleBar_MouseLeftButtonDown">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <!-- Tab strip: fills remaining width; StackPanel inside is
+                         IsHitTestVisibleInChrome so clicks work, but the empty
+                         space to the right of the last tab remains draggable. -->
+                    <ColumnDefinition Width="*"/>
+                    <!-- Right controls: always visible, fixed width -->
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
 
-                <!-- Scrollable tab strip — add-tab button lives inside as last child -->
-                <ScrollViewer HorizontalScrollBarVisibility="Auto"
+                <!-- Scrollable tab strip -->
+                <ScrollViewer Grid.Column="0"
+                              HorizontalScrollBarVisibility="Hidden"
                               VerticalScrollBarVisibility="Hidden"
-                              Background="Transparent">
+                              PreviewMouseWheel="TabScroll_MouseWheel">
                     <StackPanel x:Name="TabStrip"
                                 Orientation="Horizontal"
-                                Background="Transparent">
-                        <!-- permanent last child: always stays after the tabs -->
+                                Background="Transparent"
+                                WindowChrome.IsHitTestVisibleInChrome="True">
                         <Button x:Name="AddTabBtn"
                                 Style="{StaticResource BarIconBtn}"
                                 ToolTip="Новый проект"
@@ -76,7 +164,52 @@
                         </Button>
                     </StackPanel>
                 </ScrollViewer>
-            </DockPanel>
+
+                <!-- Right-side controls -->
+                <StackPanel Grid.Column="1"
+                            Orientation="Horizontal"
+                            WindowChrome.IsHitTestVisibleInChrome="True">
+
+                    <!-- Print -->
+                    <Button x:Name="PrintBtn"
+                            Style="{StaticResource BarIconBtn}"
+                            ToolTip="Печать"
+                            IsEnabled="False"
+                            Click="PrintBtn_Click">
+                        <TextBlock Text="🖨" FontSize="15"/>
+                    </Button>
+
+                    <!-- Theme picker -->
+                    <Button x:Name="ThemeBtn"
+                            Style="{StaticResource BarIconBtn}"
+                            ToolTip="Выбрать тему"
+                            Click="ThemeBtn_Click">
+                        <TextBlock Text="🎨" FontSize="15"/>
+                    </Button>
+
+                    <!-- Divider -->
+                    <Border Width="1"
+                            Background="{DynamicResource BorderColor}"
+                            Margin="2,8"/>
+
+                    <!-- Minimize -->
+                    <Button x:Name="WinMinBtn"
+                            Style="{StaticResource WinBtn}"
+                            ToolTip="Свернуть"
+                            Click="WinMin_Click">&#xE921;</Button>
+
+                    <!-- Maximize / Restore -->
+                    <Button x:Name="WinMaxBtn"
+                            Style="{StaticResource WinBtn}"
+                            ToolTip="Развернуть"
+                            Click="WinMax_Click">&#xE922;</Button>
+
+                    <!-- Close -->
+                    <Button Style="{StaticResource WinCloseBtn}"
+                            ToolTip="Закрыть"
+                            Click="WinClose_Click">&#xE8BB;</Button>
+                </StackPanel>
+            </Grid>
         </Border>
 
         <!-- ============================================================ -->
@@ -98,8 +231,7 @@
                     BorderThickness="1"
                     CornerRadius="5"
                     Padding="6"
-                    MinWidth="210"
-                    >
+                    MinWidth="210">
                 <Border.Effect>
                     <DropShadowEffect BlurRadius="12" ShadowDepth="2" Opacity="0.4" Color="Black"/>
                 </Border.Effect>
@@ -108,72 +240,51 @@
                                FontSize="10" FontWeight="Bold"
                                Margin="10,6,10,8"/>
 
-                    <Button Tag="Dark" Click="ThemeOption_Click"
-                            Style="{StaticResource PopupItemStyle}">
+                    <Button Tag="Dark" Click="ThemeOption_Click" Style="{StaticResource PopupItemStyle}">
                         <StackPanel Orientation="Horizontal" Height="20">
-                            <Border Width="12" Height="12" Background="#007ACC"
-                                    CornerRadius="6" Margin="0,0,10,0" VerticalAlignment="Center"/>
+                            <Border Width="12" Height="12" Background="#007ACC" CornerRadius="6" Margin="0,0,10,0" VerticalAlignment="Center"/>
                             <TextBlock Text="Тёмная (VS Code)" VerticalAlignment="Center"/>
                         </StackPanel>
                     </Button>
-
-                    <Button Tag="Light" Click="ThemeOption_Click"
-                            Style="{StaticResource PopupItemStyle}">
+                    <Button Tag="Light" Click="ThemeOption_Click" Style="{StaticResource PopupItemStyle}">
                         <StackPanel Orientation="Horizontal" Height="20">
-                            <Border Width="12" Height="12" Background="#0969DA"
-                                    CornerRadius="6" Margin="0,0,10,0" VerticalAlignment="Center"/>
+                            <Border Width="12" Height="12" Background="#0969DA" CornerRadius="6" Margin="0,0,10,0" VerticalAlignment="Center"/>
                             <TextBlock Text="Светлая (GitHub)" VerticalAlignment="Center"/>
                         </StackPanel>
                     </Button>
-
-                    <Button Tag="Monokai" Click="ThemeOption_Click"
-                            Style="{StaticResource PopupItemStyle}">
+                    <Button Tag="Monokai" Click="ThemeOption_Click" Style="{StaticResource PopupItemStyle}">
                         <StackPanel Orientation="Horizontal" Height="20">
-                            <Border Width="12" Height="12" Background="#A6E22E"
-                                    CornerRadius="6" Margin="0,0,10,0" VerticalAlignment="Center"/>
+                            <Border Width="12" Height="12" Background="#A6E22E" CornerRadius="6" Margin="0,0,10,0" VerticalAlignment="Center"/>
                             <TextBlock Text="Monokai" VerticalAlignment="Center"/>
                         </StackPanel>
                     </Button>
-
-                    <Button Tag="SolarizedDark" Click="ThemeOption_Click"
-                            Style="{StaticResource PopupItemStyle}">
+                    <Button Tag="SolarizedDark" Click="ThemeOption_Click" Style="{StaticResource PopupItemStyle}">
                         <StackPanel Orientation="Horizontal" Height="20">
-                            <Border Width="12" Height="12" Background="#268BD2"
-                                    CornerRadius="6" Margin="0,0,10,0" VerticalAlignment="Center"/>
+                            <Border Width="12" Height="12" Background="#268BD2" CornerRadius="6" Margin="0,0,10,0" VerticalAlignment="Center"/>
                             <TextBlock Text="Solarized Dark" VerticalAlignment="Center"/>
                         </StackPanel>
                     </Button>
-
-                    <Button Tag="Nord" Click="ThemeOption_Click"
-                            Style="{StaticResource PopupItemStyle}">
+                    <Button Tag="Nord" Click="ThemeOption_Click" Style="{StaticResource PopupItemStyle}">
                         <StackPanel Orientation="Horizontal" Height="20">
-                            <Border Width="12" Height="12" Background="#88C0D0"
-                                    CornerRadius="6" Margin="0,0,10,0" VerticalAlignment="Center"/>
+                            <Border Width="12" Height="12" Background="#88C0D0" CornerRadius="6" Margin="0,0,10,0" VerticalAlignment="Center"/>
                             <TextBlock Text="Nord" VerticalAlignment="Center"/>
                         </StackPanel>
                     </Button>
-
-                    <Button Tag="Dracula" Click="ThemeOption_Click"
-                            Style="{StaticResource PopupItemStyle}">
+                    <Button Tag="Dracula" Click="ThemeOption_Click" Style="{StaticResource PopupItemStyle}">
                         <StackPanel Orientation="Horizontal" Height="20">
-                            <Border Width="12" Height="12" Background="#BD93F9"
-                                    CornerRadius="6" Margin="0,0,10,0" VerticalAlignment="Center"/>
+                            <Border Width="12" Height="12" Background="#BD93F9" CornerRadius="6" Margin="0,0,10,0" VerticalAlignment="Center"/>
                             <TextBlock Text="Dracula" VerticalAlignment="Center"/>
                         </StackPanel>
                     </Button>
-
-                    <Button Tag="OneDark" Click="ThemeOption_Click"
-                            Style="{StaticResource PopupItemStyle}">
+                    <Button Tag="OneDark" Click="ThemeOption_Click" Style="{StaticResource PopupItemStyle}">
                         <StackPanel Orientation="Horizontal" Height="20">
-                            <Border Width="12" Height="12" Background="#61AFEF"
-                                    CornerRadius="6" Margin="0,0,10,0" VerticalAlignment="Center"/>
+                            <Border Width="12" Height="12" Background="#61AFEF" CornerRadius="6" Margin="0,0,10,0" VerticalAlignment="Center"/>
                             <TextBlock Text="One Dark" VerticalAlignment="Center"/>
                         </StackPanel>
                     </Button>
 
                     <Border Height="1" Background="{DynamicResource BorderColor}" Margin="4,6"/>
 
-                    <!-- Current theme indicator -->
                     <TextBlock x:Name="CurrentThemeLabel"
                                Foreground="{DynamicResource FgMuted}"
                                FontSize="11" Margin="10,0,10,6"

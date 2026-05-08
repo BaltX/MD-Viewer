@@ -67,7 +67,6 @@
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="Auto"/>
                             <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="Auto"/>
                         </Grid.ColumnDefinitions>
                         <StackPanel Grid.Column="0" Orientation="Horizontal">
                             <Button x:Name="BackBtn" Content="←" FontSize="14"
@@ -84,11 +83,6 @@
                                    VerticalAlignment="Center" Margin="4,0"
                                    TextTrimming="CharacterEllipsis"
                                    Text="Выберите файл в дереве →"/>
-                        <Button x:Name="PrintBtn" Grid.Column="2"
-                                Content="🖨" FontSize="14"
-                                Width="30" Height="30" IsEnabled="False"
-                                Style="{StaticResource PathBarBtn}"
-                                Click="PrintBtn_Click" ToolTip="Печать"/>
                     </Grid>
                 </Border>
 
