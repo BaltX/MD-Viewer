@@ -9,7 +9,14 @@
       "Bash(tasklist /FI \"IMAGENAME eq MDViewer.exe\")",
       "PowerShell(Get-Process -Name \"MDViewer\" -ErrorAction SilentlyContinue)",
       "PowerShell(& \"C:\\\\Users\\\\kirill.fedotov\\\\Documents\\\\GitHub\\\\MD Viewer\\\\bin\\\\Debug\\\\net8.0-windows\\\\MDViewer.exe\" 2>&1; Write-Host \"Exit code: $LASTEXITCODE\")",
-      "Bash(taskkill /F /IM MDViewer.exe)"
+      "Bash(taskkill /F /IM MDViewer.exe)",
+      "Bash(gh repo *)",
+      "Bash(gh auth *)",
+      "Bash(git push *)",
+      "Bash(git checkout *)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(gh pr create --title 'Add navigation, context menu, print, and link interception' --body ' *)"
     ]
   }
 }
