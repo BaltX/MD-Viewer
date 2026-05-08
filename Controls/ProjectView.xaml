@@ -4,6 +4,47 @@
              xmlns:models="clr-namespace:MDViewer.Models"
              Background="{DynamicResource BgMain}">
 
+    <UserControl.Resources>
+        <Style x:Key="PathBarBtn" TargetType="Button">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="{DynamicResource FgMuted}"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bg" Background="{TemplateBinding Background}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"
+                                              TextBlock.Foreground="{TemplateBinding Foreground}"
+                                              TextBlock.FontSize="{TemplateBinding FontSize}"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Opacity" Value="0.25"/>
+                            </Trigger>
+                            <MultiTrigger>
+                                <MultiTrigger.Conditions>
+                                    <Condition Property="IsMouseOver" Value="True"/>
+                                    <Condition Property="IsEnabled" Value="True"/>
+                                </MultiTrigger.Conditions>
+                                <Setter TargetName="Bg" Property="Background" Value="{DynamicResource Hover}"/>
+                                <Setter Property="Foreground" Value="{DynamicResource FgMain}"/>
+                            </MultiTrigger>
+                            <MultiTrigger>
+                                <MultiTrigger.Conditions>
+                                    <Condition Property="IsPressed" Value="True"/>
+                                    <Condition Property="IsEnabled" Value="True"/>
+                                </MultiTrigger.Conditions>
+                                <Setter TargetName="Bg" Property="Background" Value="{DynamicResource Selected}"/>
+                            </MultiTrigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </UserControl.Resources>
+
     <Grid>
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="*" MinWidth="200"/>
@@ -24,23 +65,30 @@
                         BorderBrush="{DynamicResource BorderColor}" BorderThickness="0,0,0,1">
                     <Grid>
                         <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
                             <ColumnDefinition Width="*"/>
                             <ColumnDefinition Width="Auto"/>
                         </Grid.ColumnDefinitions>
-                        <TextBlock x:Name="CurrentFilePath"
+                        <StackPanel Grid.Column="0" Orientation="Horizontal">
+                            <Button x:Name="BackBtn" Content="←" FontSize="14"
+                                    Width="28" Height="30" IsEnabled="False"
+                                    Style="{StaticResource PathBarBtn}"
+                                    Click="BackBtn_Click" ToolTip="Назад"/>
+                            <Button x:Name="FwdBtn" Content="→" FontSize="14"
+                                    Width="28" Height="30" IsEnabled="False"
+                                    Style="{StaticResource PathBarBtn}"
+                                    Click="FwdBtn_Click" ToolTip="Вперёд"/>
+                        </StackPanel>
+                        <TextBlock x:Name="CurrentFilePath" Grid.Column="1"
                                    Foreground="{DynamicResource FgMuted}" FontSize="12"
-                                   VerticalAlignment="Center" Margin="12,0"
+                                   VerticalAlignment="Center" Margin="4,0"
                                    TextTrimming="CharacterEllipsis"
                                    Text="Выберите файл в дереве →"/>
-                        <Button x:Name="PrintBtn" Grid.Column="1"
+                        <Button x:Name="PrintBtn" Grid.Column="2"
                                 Content="🖨" FontSize="14"
-                                Width="30" Height="30"
-                                IsEnabled="False"
-                                Click="PrintBtn_Click"
-                                Background="Transparent" BorderThickness="0"
-                                Foreground="{DynamicResource FgMuted}"
-                                Cursor="Hand"
-                                ToolTip="Печать"/>
+                                Width="30" Height="30" IsEnabled="False"
+                                Style="{StaticResource PathBarBtn}"
+                                Click="PrintBtn_Click" ToolTip="Печать"/>
                     </Grid>
                 </Border>
 
@@ -112,7 +160,17 @@
                         <TreeView.Resources>
                             <HierarchicalDataTemplate DataType="{x:Type models:FileTreeItem}"
                                                       ItemsSource="{Binding Children}">
-                                <StackPanel Orientation="Horizontal" Height="20">
+                                <StackPanel Orientation="Horizontal" Height="20"
+                                            Tag="{Binding}"
+                                            ContextMenuOpening="TreeItem_ContextMenuOpening">
+                                    <StackPanel.ContextMenu>
+                                        <ContextMenu>
+                                            <MenuItem Header="Посмотреть содержимое" Click="TreeMenu_ViewContents"/>
+                                            <MenuItem Header="Открыть расположение"  Click="TreeMenu_OpenLocation"/>
+                                            <Separator/>
+                                            <MenuItem Header="Удалить" Click="TreeMenu_Delete"/>
+                                        </ContextMenu>
+                                    </StackPanel.ContextMenu>
                                     <TextBlock Text="{Binding Icon}"
                                                FontSize="13"
                                                VerticalAlignment="Center"

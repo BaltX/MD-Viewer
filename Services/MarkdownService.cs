@@ -19,6 +19,12 @@ public static class MarkdownService
         return Wrap(body);
     }
 
+    public static string WrapRaw(string text)
+    {
+        var escaped = text.Replace("&", "&amp;").Replace("<", "&lt;").Replace(">", "&gt;");
+        return Wrap($"<pre style=\"white-space:pre-wrap;word-break:break-all;font-size:13px\">{escaped}</pre>");
+    }
+
     private static string FixImagePaths(string html, string baseDir)
     {
         return Regex.Replace(
@@ -80,6 +86,7 @@ public static class MarkdownService
         <style>{BuildCss()}</style>
         </head>
         <body>{body}<div id="csb"><div id="csb-t"></div></div>
+        <script>{NavJs}</script>
         <script>{ScrollbarJs}</script>
         </body>
         </html>
@@ -206,6 +213,23 @@ public static class MarkdownService
             }
             """;
     }
+
+    // Intercepts all link clicks and routes them through window.external.navigate()
+    // so cross-zone file:// navigation works when content is loaded via NavigateToString.
+    private const string NavJs = """
+        (function () {
+            function findAnchor(el) {
+                while (el && el.tagName !== 'A') el = el.parentElement;
+                return el;
+            }
+            document.addEventListener('click', function (e) {
+                var a = findAnchor(e.target);
+                if (!a || !a.href) return;
+                e.preventDefault();
+                try { window.external.navigate(a.href); } catch (ex) {}
+            });
+        })();
+        """;
 
     // Vanilla JS custom scrollbar — no dependencies, works in IE11.
     // Raw string literal (no $) so JS { } braces are literal.

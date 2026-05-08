@@ -9,22 +9,29 @@ using MDViewer.Services;
 
 namespace MDViewer.Controls;
 
+[System.Runtime.InteropServices.ComVisible(true)]
+public sealed class BrowserBridge(ProjectView view)
+{
+    public void navigate(string url) => view.HandleLinkNavigation(url);
+}
+
 public partial class ProjectView : UserControl
 {
     private string? _currentFilePath;
-    private bool _isBrowserNavigating;
+
+    private readonly List<string> _history = new();
+    private int _historyIndex = -1;
+    private bool _isHistoryNavigation;
 
     public string? ProjectPath { get; private set; }
 
     public ProjectView()
     {
         InitializeComponent();
+        Browser.ObjectForScripting = new BrowserBridge(this);
         SuppressBrowserScriptErrors();
         ThemeService.ThemeChanged += (_, _) => ReloadCurrentFile();
 
-        // WPF TreeView doesn't scroll with the mouse wheel unless focused.
-        // Intercept PreviewMouseWheel on the TreeView and forward it to
-        // the parent ScrollViewer so scrolling works on hover without a click.
         FileTree.PreviewMouseWheel += (sender, e) =>
         {
             var sv = FindParent<ScrollViewer>(FileTree);
@@ -42,10 +49,8 @@ public partial class ProjectView : UserControl
         var root = FileTreeItem.CreateRoot(project.Path);
         root.EnsureLoaded();
         FileTree.Items.Clear();
-        FileTree.Items.Add(root);
-
-        if (FileTree.ItemContainerGenerator.ContainerFromItem(root) is TreeViewItem tvi)
-            tvi.IsExpanded = true;
+        foreach (var child in root.Children)
+            FileTree.Items.Add(child);
 
         ClearPreview();
     }
@@ -53,9 +58,16 @@ public partial class ProjectView : UserControl
     public void ReloadCurrentFile()
     {
         if (_currentFilePath != null)
+        {
+            _isHistoryNavigation = true;
             OpenFile(_currentFilePath);
+            _isHistoryNavigation = false;
+        }
     }
 
+    // ------------------------------------------------------------------ //
+    //  File opening                                                        //
+    // ------------------------------------------------------------------ //
     private void FileTree_ItemExpanded(object sender, RoutedEventArgs e)
     {
         if (e.OriginalSource is TreeViewItem { DataContext: FileTreeItem item })
@@ -73,6 +85,18 @@ public partial class ProjectView : UserControl
         _currentFilePath = path;
         CurrentFilePath.Text = GetRelativePath(path);
 
+        if (!_isHistoryNavigation)
+        {
+            if (_historyIndex < _history.Count - 1)
+                _history.RemoveRange(_historyIndex + 1, _history.Count - _historyIndex - 1);
+            if (_history.Count == 0 || _history[_historyIndex] != path)
+            {
+                _history.Add(path);
+                _historyIndex = _history.Count - 1;
+            }
+        }
+        UpdateNavButtons();
+
         if (!path.EndsWith(".md", StringComparison.OrdinalIgnoreCase))
         {
             ShowPlaceholder("Файл не является Markdown (.md)");
@@ -85,14 +109,10 @@ public partial class ProjectView : UserControl
             var baseDir = Path.GetDirectoryName(path) ?? "";
             var html = MarkdownService.ConvertToHtml(markdown, baseDir);
 
-            var tempPath = GetTempHtmlPath();
-            File.WriteAllText(tempPath, html, System.Text.Encoding.UTF8);
-
             WelcomePlaceholder.Visibility = Visibility.Collapsed;
             Browser.Visibility = Visibility.Visible;
             PrintBtn.IsEnabled = true;
-            _isBrowserNavigating = true;
-            Browser.Navigate(new Uri(tempPath));
+            Browser.NavigateToString(html);
         }
         catch (Exception ex)
         {
@@ -100,33 +120,61 @@ public partial class ProjectView : UserControl
         }
     }
 
+    // ------------------------------------------------------------------ //
+    //  Navigation buttons                                                  //
+    // ------------------------------------------------------------------ //
+    private void BackBtn_Click(object sender, RoutedEventArgs e)
+    {
+        if (_historyIndex <= 0) return;
+        _historyIndex--;
+        _isHistoryNavigation = true;
+        OpenFile(_history[_historyIndex]);
+        _isHistoryNavigation = false;
+    }
+
+    private void FwdBtn_Click(object sender, RoutedEventArgs e)
+    {
+        if (_historyIndex >= _history.Count - 1) return;
+        _historyIndex++;
+        _isHistoryNavigation = true;
+        OpenFile(_history[_historyIndex]);
+        _isHistoryNavigation = false;
+    }
+
+    private void UpdateNavButtons()
+    {
+        BackBtn.IsEnabled = _historyIndex > 0;
+        FwdBtn.IsEnabled = _historyIndex < _history.Count - 1;
+    }
+
+    // ------------------------------------------------------------------ //
+    //  Browser navigation                                                  //
+    // ------------------------------------------------------------------ //
+    // Called from JavaScript via window.external.navigate(href)
+    internal void HandleLinkNavigation(string url)
+    {
+        try
+        {
+            var uri = new Uri(url);
+            if (uri.IsFile)
+            {
+                var localPath = uri.LocalPath;
+                var resolved = ResolveFilePath(localPath);
+                if (resolved != null) { ClearTreeSelection(); OpenFile(resolved); }
+                else ShowPlaceholder($"Файл не найден:\n{localPath}");
+            }
+            else
+            {
+                System.Diagnostics.Process.Start(
+                    new System.Diagnostics.ProcessStartInfo(url) { UseShellExecute = true });
+            }
+        }
+        catch { /* ignore */ }
+    }
+
+    // Fallback: catches any navigation the JS bridge misses (e.g. form submit, redirects)
     private void Browser_Navigating(object sender, NavigatingCancelEventArgs e)
     {
-        if (_isBrowserNavigating)
-        {
-            _isBrowserNavigating = false;
-            return;
-        }
-
-        if (e.Uri?.IsFile == true)
-        {
-            e.Cancel = true;
-
-            // Uri.LocalPath decodes percent-encoding (including Cyrillic) on Windows.
-            // After MarkdownService.FixLinkPaths all .md hrefs are already absolute,
-            // so this path points directly to the real project file, not to temp.
-            var localPath = e.Uri.LocalPath;
-
-            // Fallback fuzzy resolver handles edge cases:
-            // links without .md extension, incorrect capitalisation, etc.
-            var resolved = ResolveFilePath(localPath);
-            if (resolved != null)
-                OpenFile(resolved);
-            else
-                ShowPlaceholder($"Файл не найден:\n{localPath}");
-            return;
-        }
-
         if (e.Uri is { IsFile: false, Scheme: not "about" and not "res" })
         {
             e.Cancel = true;
@@ -139,30 +187,129 @@ public partial class ProjectView : UserControl
         }
     }
 
-    /// <summary>
-    /// Tries to find a file:
-    /// 1. Exact path as given
-    /// 2. Relative to current file's directory
-    /// 3. Relative to project root
-    /// 4. Fuzzy: search by filename in the whole project tree
-    /// </summary>
+    // ------------------------------------------------------------------ //
+    //  Tree context menu                                                   //
+    // ------------------------------------------------------------------ //
+    private void TreeItem_ContextMenuOpening(object sender, ContextMenuEventArgs e)
+    {
+        if (sender is not FrameworkElement { Tag: FileTreeItem item, ContextMenu: ContextMenu menu }) return;
+        var isFile = !item.IsDirectory;
+        // Items: 0=ViewContents, 1=OpenLocation, 2=Separator, 3=Delete
+        if (menu.Items[0] is MenuItem mi0) mi0.Visibility = isFile ? Visibility.Visible : Visibility.Collapsed;
+        if (menu.Items[2] is Separator sep) sep.Visibility = isFile ? Visibility.Visible : Visibility.Collapsed;
+        if (menu.Items[3] is MenuItem mi3) mi3.Visibility = isFile ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    private static FileTreeItem? GetContextItem(object sender) =>
+        sender is MenuItem { Parent: ContextMenu { PlacementTarget: FrameworkElement { Tag: FileTreeItem item } } }
+            ? item : null;
+
+    private void TreeMenu_ViewContents(object sender, RoutedEventArgs e)
+    {
+        if (GetContextItem(sender) is not { IsDirectory: false } item) return;
+        try
+        {
+            var text = File.ReadAllText(item.FullPath);
+            var html = MarkdownService.WrapRaw(text);
+            WelcomePlaceholder.Visibility = Visibility.Collapsed;
+            Browser.Visibility = Visibility.Visible;
+            PrintBtn.IsEnabled = true;
+            Browser.NavigateToString(html);
+        }
+        catch (Exception ex)
+        {
+            ShowPlaceholder($"Ошибка:\n{ex.Message}");
+        }
+    }
+
+    private void TreeMenu_OpenLocation(object sender, RoutedEventArgs e)
+    {
+        if (GetContextItem(sender) is not { } item) return;
+        try
+        {
+            if (item.IsDirectory)
+                System.Diagnostics.Process.Start("explorer.exe", item.FullPath);
+            else
+                System.Diagnostics.Process.Start("explorer.exe", $"/select,\"{item.FullPath}\"");
+        }
+        catch { /* ignore */ }
+    }
+
+    private void TreeMenu_Delete(object sender, RoutedEventArgs e)
+    {
+        if (GetContextItem(sender) is not { IsDirectory: false } item) return;
+        var result = MessageBox.Show(
+            $"Удалить файл?\n{item.Name}",
+            "Подтверждение удаления",
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Warning);
+        if (result != MessageBoxResult.Yes) return;
+        try
+        {
+            File.Delete(item.FullPath);
+            RemoveFromTree(item);
+            if (_currentFilePath == item.FullPath)
+                ClearPreview();
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show($"Не удалось удалить файл:\n{ex.Message}", "Ошибка",
+                MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
+
+    private void RemoveFromTree(FileTreeItem target)
+    {
+        if (FileTree.Items.Contains(target)) { FileTree.Items.Remove(target); return; }
+        foreach (var item in FileTree.Items.OfType<FileTreeItem>())
+            if (RemoveFromChildren(item, target)) return;
+    }
+
+    private static bool RemoveFromChildren(FileTreeItem parent, FileTreeItem target)
+    {
+        if (parent.Children.Remove(target)) return true;
+        foreach (var child in parent.Children)
+            if (RemoveFromChildren(child, target)) return true;
+        return false;
+    }
+
+    // ------------------------------------------------------------------ //
+    //  Tree selection helpers                                              //
+    // ------------------------------------------------------------------ //
+    private void ClearTreeSelection()
+    {
+        if (FileTree.SelectedItem == null) return;
+        var target = FileTree.SelectedItem;
+        ClearSelected(FileTree, target);
+    }
+
+    private static bool ClearSelected(ItemsControl container, object target)
+    {
+        foreach (var item in container.Items)
+        {
+            if (container.ItemContainerGenerator.ContainerFromItem(item) is not TreeViewItem tvi)
+                continue;
+            if (item == target) { tvi.IsSelected = false; return true; }
+            if (ClearSelected(tvi, target)) return true;
+        }
+        return false;
+    }
+
+    // ------------------------------------------------------------------ //
+    //  Path resolution                                                     //
+    // ------------------------------------------------------------------ //
     private string? ResolveFilePath(string path)
     {
-        // Decode percent-encoded characters (Cyrillic etc.) that may survive from the URI
         if (path.Contains('%'))
             path = Uri.UnescapeDataString(path);
 
-        // 1. Exact
         if (File.Exists(path)) return path;
 
-        // 2. Relative to current file directory
         if (_currentFilePath != null)
         {
             var dir = Path.GetDirectoryName(_currentFilePath) ?? "";
             var rel = Path.GetFullPath(Path.Combine(dir, path));
             if (File.Exists(rel)) return rel;
-
-            // Try with .md extension if missing
             if (!Path.HasExtension(rel))
             {
                 var withMd = rel + ".md";
@@ -170,12 +317,10 @@ public partial class ProjectView : UserControl
             }
         }
 
-        // 3. Relative to project root
         if (ProjectPath != null)
         {
             var rel = Path.GetFullPath(Path.Combine(ProjectPath, path));
             if (File.Exists(rel)) return rel;
-
             if (!Path.HasExtension(rel))
             {
                 var withMd = rel + ".md";
@@ -183,7 +328,6 @@ public partial class ProjectView : UserControl
             }
         }
 
-        // 4. Fuzzy: search by filename across project
         var fileName = Path.GetFileName(path);
         if (!string.IsNullOrEmpty(fileName) && ProjectPath != null)
         {
@@ -191,12 +335,9 @@ public partial class ProjectView : UserControl
             {
                 var matches = Directory.GetFiles(ProjectPath, fileName, SearchOption.AllDirectories);
                 if (matches.Length == 1) return matches[0];
-
-                // If filename has no extension, try adding .md
                 if (!Path.HasExtension(fileName))
                 {
-                    var mdMatches = Directory.GetFiles(ProjectPath, fileName + ".md",
-                        SearchOption.AllDirectories);
+                    var mdMatches = Directory.GetFiles(ProjectPath, fileName + ".md", SearchOption.AllDirectories);
                     if (mdMatches.Length == 1) return mdMatches[0];
                 }
             }
@@ -206,17 +347,18 @@ public partial class ProjectView : UserControl
         return null;
     }
 
-    private void PrintBtn_Click(object sender, RoutedEventArgs e)
-    {
-        try { Browser.InvokeScript("print"); }
-        catch { /* non-critical */ }
-    }
-
+    // ------------------------------------------------------------------ //
+    //  UI state helpers                                                    //
+    // ------------------------------------------------------------------ //
     private void ClearPreview()
     {
         _currentFilePath = null;
+        _history.Clear();
+        _historyIndex = -1;
         CurrentFilePath.Text = "Выберите файл в дереве →";
         PrintBtn.IsEnabled = false;
+        BackBtn.IsEnabled = false;
+        FwdBtn.IsEnabled = false;
         Browser.Visibility = Visibility.Collapsed;
         WelcomePlaceholder.Visibility = Visibility.Visible;
         PlaceholderMsg.Text = "Выберите .md файл";
@@ -224,9 +366,16 @@ public partial class ProjectView : UserControl
 
     private void ShowPlaceholder(string message)
     {
+        PrintBtn.IsEnabled = false;
         Browser.Visibility = Visibility.Collapsed;
         WelcomePlaceholder.Visibility = Visibility.Visible;
         PlaceholderMsg.Text = message;
+    }
+
+    private void PrintBtn_Click(object sender, RoutedEventArgs e)
+    {
+        try { Browser.InvokeScript("print"); }
+        catch { /* non-critical */ }
     }
 
     private string GetRelativePath(string fullPath)
@@ -234,13 +383,6 @@ public partial class ProjectView : UserControl
         if (ProjectPath is null) return fullPath;
         try { return Path.GetRelativePath(ProjectPath, fullPath); }
         catch { return fullPath; }
-    }
-
-    private static string GetTempHtmlPath()
-    {
-        var dir = Path.Combine(Path.GetTempPath(), "MDViewer");
-        Directory.CreateDirectory(dir);
-        return Path.Combine(dir, "preview.html");
     }
 
     private void SuppressBrowserScriptErrors()
