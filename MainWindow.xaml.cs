@@ -188,6 +188,14 @@ public partial class MainWindow : Window
     // ------------------------------------------------------------------ //
     //  Tab button building                                                 //
     // ------------------------------------------------------------------ //
+
+    private sealed class TabButtonState
+    {
+        public required System.Windows.Shapes.Rectangle Indicator;
+        public required TextBlock Label;
+        public bool IsActive;
+    }
+
     private static Border BuildTabButton(string title)
     {
         var label = new TextBlock
@@ -208,9 +216,30 @@ public partial class MainWindow : Window
             Style = Application.Current.FindResource("CloseTabBtn") as Style
         };
 
-        var inner = new StackPanel { Orientation = Orientation.Horizontal };
+        var inner = new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            VerticalAlignment = VerticalAlignment.Center
+        };
         inner.Children.Add(label);
         inner.Children.Add(closeBtn);
+
+        // 3 px accent bar at the top — colored when active, transparent when not
+        var indicator = new System.Windows.Shapes.Rectangle
+        {
+            Height = 3,
+            Fill = Brushes.Transparent
+        };
+        Grid.SetRow(indicator, 0);
+        Grid.SetRow(inner, 1);
+
+        var grid = new Grid();
+        grid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(3) });
+        grid.RowDefinitions.Add(new RowDefinition());
+        grid.Children.Add(indicator);
+        grid.Children.Add(inner);
+
+        var state = new TabButtonState { Indicator = indicator, Label = label };
 
         var border = new Border
         {
@@ -221,16 +250,17 @@ public partial class MainWindow : Window
             BorderBrush = GetBrush("BorderColor"),
             BorderThickness = new Thickness(0, 0, 1, 0),
             Cursor = Cursors.Hand,
-            Child = inner
+            Tag = state,
+            Child = grid
         };
 
         border.MouseEnter += (_, _) =>
         {
-            if (border.Tag is not true) border.Background = GetBrush("Hover");
+            if (!state.IsActive) border.Background = GetBrush("Hover");
         };
         border.MouseLeave += (_, _) =>
         {
-            if (border.Tag is not true) border.Background = GetBrush("TabInactive");
+            if (!state.IsActive) border.Background = GetBrush("TabInactive");
         };
 
         return border;
@@ -238,14 +268,16 @@ public partial class MainWindow : Window
 
     private static void SetTabActive(Border tab, bool active)
     {
-        tab.Background = GetBrush(active ? "TabActive" : "TabInactive");
-        tab.BorderThickness = active ? new Thickness(0, 2, 1, 0) : new Thickness(0, 0, 1, 0);
-        tab.BorderBrush = GetBrush(active ? "TabActiveIndicator" : "BorderColor");
-        tab.Tag = active;
+        if (tab.Tag is not TabButtonState state) return;
 
-        var panel = tab.Child as StackPanel;
-        if (panel?.Children[0] is TextBlock lbl)
-            lbl.Foreground = GetBrush(active ? "FgMain" : "FgMuted");
+        state.IsActive = active;
+        state.Indicator.Fill = active ? GetBrush("TabActiveIndicator") : Brushes.Transparent;
+        state.Label.Foreground = GetBrush(active ? "FgMain" : "FgMuted");
+        state.Label.FontWeight = active ? FontWeights.SemiBold : FontWeights.Normal;
+
+        tab.Background = GetBrush(active ? "TabActive" : "TabInactive");
+        tab.BorderBrush = GetBrush("BorderColor");
+        tab.BorderThickness = new Thickness(0, 0, 1, 0);
     }
 
     private void RefreshAllTabColors()
@@ -256,9 +288,8 @@ public partial class MainWindow : Window
 
     private static void UpdateTabButtonLabel(TabEntry entry)
     {
-        var panel = entry.TabButton.Child as StackPanel;
-        if (panel?.Children[0] is TextBlock lbl)
-            lbl.Text = entry.Title;
+        if (entry.TabButton.Tag is TabButtonState state)
+            state.Label.Text = entry.Title;
     }
 
     // ------------------------------------------------------------------ //
