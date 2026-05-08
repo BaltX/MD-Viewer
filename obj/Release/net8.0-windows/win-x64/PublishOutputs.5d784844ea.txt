@@ -1,6 +1,0 @@
-C:\Users\kirill.fedotov\Documents\GitHub\MD Viewer\publish\MDViewer.exe
-C:\Users\kirill.fedotov\Documents\GitHub\MD Viewer\publish\MDViewer.dll
-C:\Users\kirill.fedotov\Documents\GitHub\MD Viewer\publish\MDViewer.deps.json
-C:\Users\kirill.fedotov\Documents\GitHub\MD Viewer\publish\MDViewer.runtimeconfig.json
-C:\Users\kirill.fedotov\Documents\GitHub\MD Viewer\publish\MDViewer.pdb
-C:\Users\kirill.fedotov\Documents\GitHub\MD Viewer\publish\Markdig.dll
